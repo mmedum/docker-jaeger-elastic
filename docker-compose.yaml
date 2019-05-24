@@ -4,7 +4,7 @@ services:
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:6.8.0
     environment:
-      - cluster.name=docker-cluster
+      - cluster.name=jaeger-cluster
       - discovery.type=single-node
     ulimits:
       memlock:
@@ -29,6 +29,9 @@ services:
     environment:
       - SPAN_STORAGE_TYPE=elasticsearch
       - ES_SERVER_URLS=http://elasticsearch:9200
+      - ES_TAGS_AS_FIELDS=true
+      - ES_NUM_SHARDS=1
+      - ES_NUM_REPLICAS=0
     ports:
       - "14269"
       - "14268:14268"
@@ -45,9 +48,11 @@ services:
 
   jaeger-agent:
     image: jaegertracing/jaeger-agent:1.12
+    environment:
+      - SPAN_STORAGE_TYPE=elasticsearch
     command: 
       [
-          "--reporter.grpc.host-port=jaeger-collector:14250"
+          "--collector.host-port=jaeger-collector:14267"
       ]
     ports:
       - "5775:5775/udp"
@@ -56,20 +61,21 @@ services:
       - "5778:5778"
     restart: on-failure
     depends_on:
+      - elasticsearch
       - jaeger-collector
 
   jaeger-query:
     image: jaegertracing/jaeger-query:1.12
+    environment:
+      - SPAN_STORAGE_TYPE=elasticsearch
+      - ES_SERVER_URLS=http://elasticsearch:9200
     ports:
       - "16686:16686"
       - "16687"
     restart: on-failure
     command: 
       [
-          "--es.server-urls=http://elasticsearch:9200", 
-          "--span-storage.type=elasticsearch", 
           "--log-level=debug",
-          "--es.sniffer=false",
       ]
     depends_on:
       - elasticsearch
